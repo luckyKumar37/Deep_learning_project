@@ -4,7 +4,10 @@ import time
 import requests
 import streamlit as st
 from PIL import Image
-from frontend.config import DEFAULT_BACKEND_URL, REQUEST_TIMEOUT, ALLOWED_EXTENSIONS
+try:
+    from frontend.config import DEFAULT_BACKEND_URL, REQUEST_TIMEOUT, ALLOWED_EXTENSIONS
+except ModuleNotFoundError:
+    from config import DEFAULT_BACKEND_URL, REQUEST_TIMEOUT, ALLOWED_EXTENSIONS
 
 # Set Page Config
 st.set_page_config(
