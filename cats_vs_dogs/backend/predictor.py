@@ -16,13 +16,15 @@ class ModelPredictor:
     def load(self) -> None:
         """
         Loads TensorFlow model into memory once during API startup.
-        Checks multiple candidate paths to support different deployment CWDs.
+        Checks candidate paths and automatically resolves Git LFS pointer files on cloud hosts.
         """
         if self._is_loaded and self.model is not None:
             logger.info("Model is already loaded.")
             return
 
         import os
+        import requests
+
         target_paths = [
             self.model_path,
             os.path.join(os.path.dirname(__file__), "model.keras"),
@@ -37,14 +39,31 @@ class ModelPredictor:
                 break
 
         if not resolved_path:
-            logger.error(f"Model file not found or invalid size in paths: {target_paths}")
-            # Fallback to first existing path even if small to produce clear Keras error
+            # Check if an existing path is a Git LFS pointer file (< 1000 bytes)
+            lfs_pointer_path = None
             for p in target_paths:
                 if os.path.exists(p):
-                    resolved_path = p
+                    lfs_pointer_path = p
                     break
-            if not resolved_path:
-                resolved_path = self.model_path
+            
+            resolved_path = lfs_pointer_path or os.path.join(os.path.dirname(__file__), "model.keras")
+            
+            # Download full model file if pointer or missing on cloud host
+            lfs_url = "https://media.githubusercontent.com/media/luckyKumar37/Deep_learning_project/main/cats_vs_dogs/backend/model.keras"
+            logger.warning(f"Git LFS pointer file or missing model detected at '{resolved_path}'. Downloading full 81.9MB model.keras from GitHub LFS...")
+            try:
+                os.makedirs(os.path.dirname(os.path.abspath(resolved_path)), exist_ok=True)
+                resp = requests.get(lfs_url, stream=True, timeout=120)
+                if resp.status_code == 200:
+                    with open(resolved_path, "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=65536):
+                            if chunk:
+                                f.write(chunk)
+                    logger.info(f"Model successfully downloaded ({os.path.getsize(resolved_path)} bytes) to '{resolved_path}'.")
+                else:
+                    logger.error(f"Failed to download model from GitHub LFS. Status code: {resp.status_code}")
+            except Exception as dl_err:
+                logger.error(f"Exception during Git LFS model download: {dl_err}")
 
         logger.info(f"Loading Keras model from resolved path: {resolved_path} (size: {os.path.getsize(resolved_path) if os.path.exists(resolved_path) else 'N/A'} bytes)")
         start_time = time.time()
