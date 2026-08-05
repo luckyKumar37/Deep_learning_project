@@ -9,6 +9,13 @@ A clean, modular, and production-quality full-stack machine learning application
 
 ---
 
+## 🌐 Live Deployments
+
+- **🎨 Streamlit Web UI:** [https://dogvscats-hjh2rlqna6btj2xz9bzjph.streamlit.app/](https://dogvscats-hjh2rlqna6btj2xz9bzjph.streamlit.app/)
+- **⚡ FastAPI REST API (Railway):** [https://deeplearningproject-production.up.railway.app/docs](https://deeplearningproject-production.up.railway.app/docs)
+
+---
+
 ## 🏛️ System Architecture
 
 The application enforces strict separation of concerns between client and server:
