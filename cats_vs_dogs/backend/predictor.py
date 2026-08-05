@@ -16,20 +16,45 @@ class ModelPredictor:
     def load(self) -> None:
         """
         Loads TensorFlow model into memory once during API startup.
+        Checks multiple candidate paths to support different deployment CWDs.
         """
         if self._is_loaded and self.model is not None:
             logger.info("Model is already loaded.")
             return
 
-        logger.info(f"Loading Keras model from path: {self.model_path}")
+        import os
+        target_paths = [
+            self.model_path,
+            os.path.join(os.path.dirname(__file__), "model.keras"),
+            os.path.join(os.path.dirname(__file__), "..", "model.keras"),
+            os.path.join(os.path.dirname(__file__), "..", "backend", "model.keras")
+        ]
+
+        resolved_path = None
+        for p in target_paths:
+            if os.path.exists(p) and os.path.getsize(p) > 1000:
+                resolved_path = p
+                break
+
+        if not resolved_path:
+            logger.error(f"Model file not found or invalid size in paths: {target_paths}")
+            # Fallback to first existing path even if small to produce clear Keras error
+            for p in target_paths:
+                if os.path.exists(p):
+                    resolved_path = p
+                    break
+            if not resolved_path:
+                resolved_path = self.model_path
+
+        logger.info(f"Loading Keras model from resolved path: {resolved_path} (size: {os.path.getsize(resolved_path) if os.path.exists(resolved_path) else 'N/A'} bytes)")
         start_time = time.time()
         try:
-            self.model = tf.keras.models.load_model(self.model_path)
+            self.model = tf.keras.models.load_model(resolved_path)
             self._is_loaded = True
             elapsed = time.time() - start_time
             logger.info(f"Model successfully loaded in {elapsed:.2f} seconds.")
         except Exception as e:
-            logger.error(f"Failed to load model from {self.model_path}: {str(e)}")
+            logger.error(f"Failed to load model from {resolved_path}: {str(e)}")
             raise e
 
     @property
