@@ -105,15 +105,21 @@ st.markdown("""
 if "history" not in st.session_state:
     st.session_state.history = []
 
-if "backend_url" not in st.session_state:
+if "backend_url" not in st.session_state or (DEFAULT_BACKEND_URL != "http://localhost:8000" and st.session_state.backend_url == "http://localhost:8000"):
     st.session_state.backend_url = DEFAULT_BACKEND_URL
 
 # Helper function to check backend health
 def check_backend_health(url: str):
+    url_clean = url.strip().rstrip('/')
+    if not url_clean.startswith(('http://', 'https://')):
+        url_clean = f"https://{url_clean}"
     try:
-        response = requests.get(f"{url.rstrip('/')}/health", timeout=4)
+        response = requests.get(f"{url_clean}/health", timeout=6)
         if response.status_code == 200:
-            return True, response.json()
+            data = response.json()
+            if data.get("status") == "healthy" or data.get("model_loaded") is True:
+                return True, data
+            return False, data
         return False, {"error": f"HTTP {response.status_code}"}
     except requests.exceptions.RequestException as e:
         return False, {"error": str(e)}
@@ -127,7 +133,10 @@ backend_url_input = st.sidebar.text_input(
     value=st.session_state.backend_url,
     help="FastAPI server endpoint URL"
 )
-st.session_state.backend_url = backend_url_input.strip()
+url_formatted = backend_url_input.strip()
+if url_formatted and not url_formatted.startswith(('http://', 'https://')):
+    url_formatted = f"https://{url_formatted}"
+st.session_state.backend_url = url_formatted
 
 # Check Backend Health Connection
 is_healthy, health_data = check_backend_health(st.session_state.backend_url)
